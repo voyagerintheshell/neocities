@@ -3,66 +3,636 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>voyagers black box</title>
+    <title>Voyager's Black Box</title>
     <style>
+      @font-face {
+        font-family: 'DejaVu Sans Mono';
+        src: url('https://cdnjs.cloudflare.com/ajax/libs/dejavu-fonts-ttf/2.37.3/ttf/DejaVuSansMono.ttf') format('truetype');
+      }
+
+      :root {
+        --text-color: #00ff00;
+        --bg-color: #000000;
+        --highlight-color: #444444;
+        --link-color: #00ffff;
+      }
+
       body {
-        background-color: black;
-        color: white;
-        font-family: monospace;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
         margin: 0;
         padding: 20px;
+        height: 100vh;
+        overflow: hidden;
+        font-size: 14px;
+        line-height: 1.4;
       }
+
       pre {
         white-space: pre-wrap;
         word-wrap: break-word;
         font-size: 14px;
+        max-height: calc(100vh - 60px);
+        overflow-y: auto;
+        font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+        margin: 0;
+        padding: 0;
       }
+
       .terminal-link {
-        color: white;
-        text-decoration: none; /* No underline */
+        color: var(--link-color);
+        text-decoration: none;
+        border-bottom: 1px dotted var(--link-color);
+      }
+
+      .terminal-link:hover {
+        text-decoration: underline;
+      }
+
+      .input-line {
+        display: flex;
+        align-items: center;
+        font-size: 14px;
+        margin-top: 0;
+      }
+
+      .prompt {
+        white-space: nowrap;
+        color: var(--text-color);
+      }
+
+      .fixed-space {
+        white-space: pre;
+      }
+
+      input {
+        background-color: transparent;
+        color: var(--text-color);
+        border: none;
+        outline: none;
+        width: 100%;
+        font-size: 14px;
+        font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+        padding: 0;
+        margin: 0;
+        caret-color: transparent;
+      }
+
+      .directory {
+        color: #4a9de7;
+        font-weight: bold;
+      }
+
+      .file {
+        color: var(--text-color);
+      }
+
+      #theme-toggle {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: transparent;
+        color: var(--text-color);
+        border: 1px solid var(--text-color);
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .dark-theme {
+        --text-color: #00ff00;
+        --bg-color: #000000;
+        --highlight-color: #444444;
+        --link-color: #00ffff;
+      }
+
+      .light-theme {
+        --text-color: #00aa00;
+        --bg-color: #f0f0f0;
+        --highlight-color: #dddddd;
+        --link-color: #0088aa;
+      }
+
+      .amber-theme {
+        --text-color: #ffb000;
+        --bg-color: #1a1a1a;
+        --highlight-color: #444444;
+        --link-color: #ffd700;
+      }
+
+      #welcome-message {
+        margin-bottom: 15px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      #completion-suggestions {
+        background-color: var(--bg-color);
+        border: 1px solid var(--text-color);
+        margin-top: 5px;
+        padding: 5px;
+        max-width: 50%;
+        display: none;
+      }
+
+      .suggestion {
+        padding: 2px 5px;
+        cursor: pointer;
+      }
+
+      .suggestion:hover {
+        background-color: var(--highlight-color);
+      }
+
+      .no-margin {
+        margin: 0;
+        padding: 0;
       }
     </style>
   </head>
-  <body>
-    <pre>
-[voyager@neocities ~]$ cityfetch
-__/\\\________/\\\_            voyager@neocities
- _\/\\\_______\/\\\_           -----------
-  _\//\\\______/\\\__          OS: HTML
-   __\//\\\____/\\\___         Host: neocities.org
-    ___\//\\\__/\\\____        Kernel: Psuedo-Linux
-     ____\//\\\/\\\_____       Uptime: Since 2025-04-02
-      _____\//\\\\\______      Shell: Psuedo-Bash
-       ______\//\\\_______
-        _______\///________
+  <body onclick="focusInput()">
+    <button id="theme-toggle">Toggle Theme</button>
+    <pre id="terminal-output"></pre>
+    <div class="input-line">
+      <span class="prompt" id="prompt">[voyager@neocities]</span>
+      <span class="fixed-space"> </span>
+      <input type="text" id="user-input" autofocus spellcheck="false" autocomplete="off" />
+    </div>
+    <div id="completion-suggestions"></div>
 
-[voyager@neocities ~]$ cd 'about me'
-[voyager@neocities about me]$ cat 'general'
-                                          _       __  __              __         ____
+    <script>
+      const terminalOutput = document.getElementById("terminal-output");
+      const userInput = document.getElementById("user-input");
+      const promptSpan = document.getElementById("prompt");
+      const themeToggle = document.getElementById("theme-toggle");
+      const completionSuggestions = document.getElementById("completion-suggestions");
+
+      const themes = ["dark-theme", "light-theme", "amber-theme"];
+      let currentThemeIndex = 0;
+      document.body.classList.add(themes[currentThemeIndex]);
+
+      // File system structure with metadata
+      const fileSystem = {
+        "~": {
+          type: "directory",
+          children: ["about me", "misc"],
+        },
+        "about me": {
+          type: "directory",
+          children: ["general", "interests", "music i like", "socials"],
+        },
+        "misc": {
+          type: "directory",
+          children: ["source code", "quote of whenever i feel like it"],
+        }
+      };
+
+      const fileContents = {
+        "general": `                                          _       __  __              __         ____
  _   ______  __  ______ _____ ____  _____(_)___  / /_/ /_  ___  _____/ /_  ___  / / /
-| | / / __ \/ / / / __ `/ __ `/ _ \/ ___/ / __ \/ __/ __ \/ _ \/ ___/ __ \/ _ \/ / /
+| | / / __ \\/ / / / __ \`/ __ \`/ _ \\/ ___/ / __ \\/ __/ __ \\/ _ \\/ ___/ __ \\/ _ \\/ / /
 | |/ / /_/ / /_/ / /_/ / /_/ /  __/ /  / / / / / /_/ / / /  __(__  ) / / /  __/ / /
-|___/\____/\__, /\__,_/\__, /\___/_/  /_/_/ /_/\__/_/ /_/\___/____/_/ /_/\___/_/_/
-          /____/      /____/
+|___/\\____/\\__, /\\__,_/\\__, /\\___/_/  /_/_/ /_/\\__/_/ /_/\\___/____/_/ /_/\\___/_/_/
+          /____/      /____/`,
+        "interests": `i like racing, aviation, linux, programming, cyberpunk (the genre and the game but this is referring to the genre), that sort of stuff`,
+        "music i like": `slowcore, shoegaze and stuff. i adore clay partons work at duster, eiafuawn, calm etc. you should listen to tacoma radar`,
+        "socials": `placeholder`,
+        "quote of whenever i feel like it": `"What's reality? I don't know. When my bird was looking at my computer monitor I thought 'That bird has no idea what he's looking at.' And yet what does the bird do? Does he panic? No, he can't really panic, he just does the best he can. Is he able to live in a world where he's so ignorant? Well, he doesn't really have a choice. The bird is okay even though he doesn't understand the world. You're that bird looking at the monitor, and you're thinking to yourself, I can figure this out. Maybe you have some bird ideas. Maybe that's the best you can do."
+- Terry Davis`,
+        "source code": `<a href="https://github.com/voyagerintheshell/neocities/" target="_blank" class="terminal-link">my github repo (click!!!)</a>`
+      };
 
-hello hi
-edgy 14 year old
-i go by any pronouns but prefer he/they
-you should watch ghost in the shell (1995)
+      const commands = [
+        { name: "ls", description: "List directory contents" },
+        { name: "cd", description: "Change the current directory" },
+        { name: "cat", description: "Display file contents" },
+        { name: "clear", description: "Clear the terminal screen" },
+        { name: "cityfetch", description: "Display system information" },
+        { name: "help", description: "Display available commands" },
+        { name: "pwd", description: "Print working directory" },
+        { name: "theme", description: "Change terminal theme (dark/light/amber)" },
+        { name: "echo", description: "Display a line of text" },
+        { name: "date", description: "Display the current date and time" }
+      ];
 
-[voyager@neocities about me]$ cat 'interests'
-i like racing, aviation, linux, programming, cyberpunk (the genre and the game but this is referring to the genre), that sort of stuff
-[voyager@neocities about me]$ cat 'music i like'
-slowcore, shoegaze and stuff. i adore clay partons work at duster, eiafuawn, calm etc. you should listen to tacoma radar
-[voyager@neocities about me]$ cat 'socials'
-placeholder
-[voyager@neocities about me]$ cd ~
-[voyager@neocities ~]$ cat 'quote of whenever i feel like it'
-"What's reality? I don't know. When my bird was looking at my computer monitor I thought 'That bird has no idea what he's looking at.' And yet what does the bird do? Does he panic? No, he can't really panic, he just does the best he can. Is he able to live in a world where he's so ignorant? Well, he doesn't really have a choice. The bird is okay even though he doesn't understand the world. You're that bird looking at the monitor, and you're thinking to yourself, I can figure this out. Maybe you have some bird ideas. Maybe that's the best you can do."
-- Terry Davis
-[voyager@neocities ~]$ cat 'source code'
-<a href="https://github.com/voyagerintheshell/neocities/" target="_blank" class="terminal-link">my github repo (click!!!)</a>
-[voyager@neocities ~]$ ▮
-    </pre>
+      let currentDir = "~";
+      const commandHistory = [];
+      let historyIndex = -1;
+      let lastCommand = "";
+
+      // Welcome message
+      const welcomeMessage = `Welcome to Voyager's Black Box Terminal! Type 'help' for available commands.`;
+
+      function updatePrompt() {
+        promptSpan.textContent = `[voyager@neocities]`;
+      }
+
+      function focusInput() {
+        userInput.focus();
+      }
+
+      // Helper function to format directory listings
+      const formatListing = (items) => {
+        if (!items || items.length === 0) return "";
+        
+        const output = [];
+        items.forEach(item => {
+          const isDirectory = fileSystem[item]?.type === "directory" || 
+                             (currentDir !== "~" && fileSystem[`${currentDir}/${item}`]?.type === "directory");
+          
+          const formattedItem = item.includes(" ") ? `"${item}"` : item;
+          
+          if (isDirectory) {
+            output.push(`<span class="directory">${formattedItem}/</span>`);
+          } else {
+            output.push(`<span class="file">${formattedItem}</span>`);
+          }
+        });
+        
+        return output.join("  ");
+      };
+
+      const listFiles = () => {
+        const dirContents = fileSystem[currentDir]?.children || [];
+        if (dirContents.length > 0) {
+          return formatListing(dirContents);
+        } else {
+          return `ls: cannot open directory '${currentDir}': No such directory`;
+        }
+      };
+
+      function showCompletionSuggestions(suggestions) {
+        if (suggestions.length === 0) {
+          completionSuggestions.style.display = "none";
+          return;
+        }
+        
+        completionSuggestions.innerHTML = "";
+        suggestions.forEach(suggestion => {
+          const div = document.createElement("div");
+          div.className = "suggestion";
+          div.textContent = suggestion;
+          div.onclick = (e) => {
+            e.stopPropagation();
+            userInput.value = suggestion;
+            completionSuggestions.style.display = "none";
+            focusInput();
+          };
+          completionSuggestions.appendChild(div);
+        });
+        
+        completionSuggestions.style.display = "block";
+      }
+
+      function handleTabCompletion() {
+        const input = userInput.value.trim();
+        let suggestions = [];
+        
+        if (!input.includes(" ")) {
+          // Command completion
+          suggestions = commands
+            .map(cmd => cmd.name)
+            .filter(cmd => cmd.startsWith(input));
+          
+          if (suggestions.length === 1) {
+            userInput.value = suggestions[0] + " ";
+            completionSuggestions.style.display = "none";
+          } else if (suggestions.length > 1 && input) {
+            showCompletionSuggestions(suggestions);
+          }
+        } 
+        else if (input.startsWith("cat ") || input.startsWith("cd ")) {
+          const cmd = input.split(" ")[0];
+          const partial = input.split(" ")[1] || "";
+          
+          let matchingItems = [];
+          if (cmd === "cat") {
+            // Only suggest files for cat
+            matchingItems = fileSystem[currentDir]?.children.filter(item => 
+              item.startsWith(partial) && fileContents[item]
+            ) || [];
+          } else if (cmd === "cd") {
+            // Only suggest directories for cd
+            if (partial === ".." || partial === "~") {
+              matchingItems = [partial];
+            } else {
+              matchingItems = fileSystem[currentDir]?.children.filter(item => 
+                item.startsWith(partial) && (fileSystem[item]?.type === "directory" || 
+                fileSystem[`${currentDir}/${item}`]?.type === "directory")
+              ) || [];
+              
+              // Always allow navigating up
+              if ("..".startsWith(partial)) {
+                matchingItems.push("..");
+              }
+              
+              // Always allow navigating to home
+              if ("~".startsWith(partial)) {
+                matchingItems.push("~");
+              }
+            }
+          }
+          
+          if (matchingItems.length === 1) {
+            const item = matchingItems[0];
+            userInput.value = `${cmd} ${item.includes(" ") ? `"${item}"` : item}`;
+            completionSuggestions.style.display = "none";
+          } else if (matchingItems.length > 1 && partial) {
+            showCompletionSuggestions(matchingItems.map(item => `${cmd} ${item.includes(" ") ? `"${item}"` : item}`));
+          }
+        }
+      }
+
+      function executeCommand(command) {
+        if (!command) {
+          return "";
+        }
+
+        const args = command.split(" ");
+        const cmd = args[0];
+
+        // Handle quotes in arguments
+        let processedArgs = [];
+        let currentArg = "";
+        let inQuotes = false;
+        let quoteChar = "";
+
+        for (let i = 1; i < args.length; i++) {
+          const arg = args[i];
+          
+          if (!inQuotes && (arg.startsWith('"') || arg.startsWith("'"))) {
+            inQuotes = true;
+            quoteChar = arg[0];
+            currentArg = arg.substring(1);
+            
+            if (arg.endsWith(quoteChar) && arg.length > 1) {
+              inQuotes = false;
+              currentArg = currentArg.substring(0, currentArg.length - 1);
+              processedArgs.push(currentArg);
+              currentArg = "";
+            }
+          } 
+          else if (inQuotes && arg.endsWith(quoteChar)) {
+            currentArg += " " + arg.substring(0, arg.length - 1);
+            inQuotes = false;
+            processedArgs.push(currentArg);
+            currentArg = "";
+          }
+          else if (inQuotes) {
+            currentArg += " " + arg;
+          }
+          else {
+            processedArgs.push(arg);
+          }
+        }
+
+        if (currentArg) {
+          processedArgs.push(currentArg);
+        }
+
+        switch (cmd) {
+          case "help":
+            return generateHelpText();
+          
+          case "cd":
+            return changeDirectory(processedArgs[0]);
+          
+          case "cat":
+            return catFile(processedArgs[0]);
+          
+          case "ls":
+            const flags = processedArgs.filter(arg => arg.startsWith("-"));
+            return listFiles(flags);
+          
+          case "clear":
+            terminalOutput.innerHTML = "";
+            return "";
+          
+          case "cityfetch":
+            return generateCityFetch();
+          
+          case "pwd":
+            return currentDir;
+          
+          case "theme":
+            return changeTheme(processedArgs[0]);
+          
+          case "echo":
+            return processedArgs.join(" ");
+          
+          case "date":
+            return new Date().toString();
+          
+          default:
+            return `bash: ${cmd}: command not found`;
+        }
+      }
+
+      function generateHelpText() {
+        let output = "Available commands:\n\n";
+        commands.forEach(cmd => {
+          output += `${cmd.name.padEnd(12)} - ${cmd.description}\n`;
+        });
+        return output;
+      }
+
+      function changeDirectory(dir) {
+        if (!dir) {
+          return "bash: cd: missing operand";
+        }
+        
+        if (dir === "..") {
+          if (currentDir === "~") {
+            return `bash: cd: ..: No such directory`;
+          } else {
+            currentDir = "~";
+            updatePrompt();
+            return "";
+          }
+        } 
+        else if (dir === "~") {
+          currentDir = "~";
+          updatePrompt();
+          return "";
+        } 
+        else {
+          if (fileSystem[currentDir]?.children.includes(dir)) {
+            if (fileSystem[dir]?.type === "directory") {
+              currentDir = dir;
+              updatePrompt();
+              return "";
+            } else {
+              return `bash: cd: ${dir}: Not a directory`;
+            }
+          } else {
+            return `bash: cd: ${dir}: No such directory`;
+          }
+        }
+      }
+
+      function catFile(file) {
+        if (!file) {
+          return "bash: cat: missing operand";
+        }
+        
+        if (fileSystem[currentDir]?.children.includes(file)) {
+          if (fileContents[file]) {
+            return fileContents[file];
+          } else {
+            return `bash: cat: ${file}: No such file`;
+          }
+        } else {
+          return `bash: cat: ${file}: No such file or directory`;
+        }
+      }
+
+      function generateCityFetch() {
+        return `
+__/\\\\________/\\\\_            voyager@neocities
+ _\\/\\\\_______\\/\\\\_           -----------
+  _\\//\\\\______/\\\\__          OS: HTML
+   __\\//\\\\____/\\\\___         Host: neocities.org
+    ___\\//\\\\__/\\\\____        Kernel: psuedo-linux
+     ____\\//\\\\/\\\\_____       Uptime: Since ${new Date().toISOString().split('T')[0]}
+      _____\\//\\\\\\\\______      Shell: Psuedo-Bash
+       ______\\//\\\\_______     Theme: ${themes[currentThemeIndex].replace('-theme', '')}
+        _______\\///________
+`;
+      }
+
+      function changeTheme(themeName) {
+        let themeChanged = false;
+        
+        if (themeName) {
+          const themeIndex = themes.findIndex(t => t.startsWith(themeName.toLowerCase()));
+          if (themeIndex !== -1) {
+            document.body.classList.remove(themes[currentThemeIndex]);
+            currentThemeIndex = themeIndex;
+            document.body.classList.add(themes[currentThemeIndex]);
+            themeChanged = true;
+          }
+        }
+        
+        if (!themeChanged) {
+          document.body.classList.remove(themes[currentThemeIndex]);
+          currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+          document.body.classList.add(themes[currentThemeIndex]);
+        }
+        
+        return `Theme changed to: ${themes[currentThemeIndex].replace('-theme', '')}`;
+      }
+
+      function appendToTerminal(html, isHtml = false) {
+        const div = document.createElement('div');
+        div.className = 'no-margin';
+        
+        if (isHtml) {
+          div.innerHTML = html;
+        } else {
+          div.textContent = html;
+        }
+        
+        terminalOutput.appendChild(div);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+
+      function handleUserInput() {
+        const userCommand = userInput.value.trim();
+        
+        // Append command to output
+        appendToTerminal(`${promptSpan.textContent} ${userInput.value}`);
+        
+        if (userCommand) {
+          // Don't add duplicate consecutive commands to history
+          if (userCommand !== lastCommand) {
+            commandHistory.push(userCommand);
+            lastCommand = userCommand;
+          }
+          
+          historyIndex = commandHistory.length;
+
+          const output = executeCommand(userCommand);
+          if (output) {
+            // Check if output contains HTML
+            if (output.includes('<a') || output.includes('<span')) {
+              appendToTerminal(`${output}`, true);
+            } else {
+              appendToTerminal(`${output}`);
+            }
+          }
+        }
+        
+        userInput.value = "";
+        updatePrompt();
+        completionSuggestions.style.display = "none";
+      }
+
+      function initTerminal() {
+        document.body.className = themes[currentThemeIndex];
+        updatePrompt();
+        appendToTerminal(welcomeMessage);
+        userInput.focus();
+      }
+
+      userInput.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+          handleUserInput();
+          event.preventDefault();
+        } else if (event.key === "ArrowUp") {
+          if (historyIndex > 0) {
+            historyIndex--;
+            userInput.value = commandHistory[historyIndex];
+            setTimeout(() => {
+              userInput.selectionStart = userInput.selectionEnd = userInput.value.length;
+            }, 0);
+          }
+          event.preventDefault();
+        } else if (event.key === "ArrowDown") {
+          if (historyIndex < commandHistory.length - 1) {
+            historyIndex++;
+            userInput.value = commandHistory[historyIndex];
+          } else {
+            historyIndex = commandHistory.length;
+            userInput.value = "";
+          }
+          setTimeout(() => {
+            userInput.selectionStart = userInput.selectionEnd = userInput.value.length;
+          }, 0);
+          event.preventDefault();
+        } else if (event.key === "Tab") {
+          handleTabCompletion();
+          event.preventDefault();
+        } else if (event.key === "Escape") {
+          completionSuggestions.style.display = "none";
+        } else if (event.key === "c" && event.ctrlKey) {
+          appendToTerminal(`^C`);
+          userInput.value = "";
+          event.preventDefault();
+        }
+      });
+
+      userInput.addEventListener("input", function() {
+        completionSuggestions.style.display = "none";
+      });
+
+      document.addEventListener("click", function(event) {
+        if (event.target !== userInput && !event.target.classList.contains("suggestion")) {
+          completionSuggestions.style.display = "none";
+          focusInput();
+        }
+      });
+      
+      themeToggle.addEventListener("click", function(event) {
+        event.stopPropagation();
+        executeCommand("theme");
+      });
+      
+      initTerminal();
+    </script>
   </body>
 </html>
