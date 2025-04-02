@@ -122,6 +122,13 @@
         --highlight-color: #444444;
         --link-color: #ffd700;
       }
+      
+      .americanfootball-theme {
+        --text-color: #ffffff;
+        --bg-color: #080a05;
+        --highlight-color: #1e2317;
+        --link-color: #9eba82;
+      }
 
       #welcome-message {
         margin-bottom: 15px;
@@ -172,7 +179,7 @@
       const themeToggle = document.getElementById("theme-toggle");
       const completionSuggestions = document.getElementById("completion-suggestions");
 
-      const themes = ["dark-theme", "light-theme", "amber-theme"];
+      const themes = ["dark-theme", "light-theme", "amber-theme", "americanfootball-theme"];
       let currentThemeIndex = 0;
       document.body.classList.add(themes[currentThemeIndex]);
 
@@ -215,7 +222,7 @@
         { name: "cityfetch", description: "Display system information" },
         { name: "help", description: "Display available commands" },
         { name: "pwd", description: "Print working directory" },
-        { name: "theme", description: "Change terminal theme (dark/light/amber)" },
+        { name: "theme", description: "Change terminal theme (dark/light/amber/americanfootball)" },
         { name: "echo", description: "Display a line of text" },
         { name: "date", description: "Display the current date and time" }
       ];
