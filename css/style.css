@@ -1,0 +1,155 @@
+@font-face {
+  font-family: 'DejaVu Sans Mono';
+  src: url('https://cdnjs.cloudflare.com/ajax/libs/dejavu-fonts-ttf/2.37.3/ttf/DejaVuSansMono.ttf') format('truetype');
+}
+
+:root {
+  --text-color: #00ff00;
+  --bg-color: #000000;
+  --highlight-color: #444444;
+  --link-color: #00ffff;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+  margin: 0;
+  padding: 20px;
+  height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 14px;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+  margin: 0;
+  padding: 0;
+}
+
+.terminal-link {
+  color: var(--link-color);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--link-color);
+}
+
+.terminal-link:hover {
+  text-decoration: underline;
+}
+
+.input-line {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  margin-top: 0;
+}
+
+.prompt {
+  white-space: nowrap;
+  color: var(--text-color);
+}
+
+.fixed-space {
+  white-space: pre;
+}
+
+input {
+  background-color: transparent;
+  color: var(--text-color);
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+  font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+  padding: 0;
+  margin: 0;
+  caret-color: transparent;
+}
+
+.directory {
+  color: #4a9de7;
+  font-weight: bold;
+}
+
+.file {
+  color: var(--text-color);
+}
+
+#theme-toggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--text-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dark-theme {
+  --text-color: #ffffff;
+  --bg-color: #000000;
+  --highlight-color: #444444;
+  --link-color: #00ffff;
+}
+
+.light-theme {
+  --text-color: #000000;
+  --bg-color: #f0f0f0;
+  --highlight-color: #dddddd;
+  --link-color: #0088aa;
+}
+
+.amber-theme {
+  --text-color: #ffb000;
+  --bg-color: #1a1a1a;
+  --highlight-color: #444444;
+  --link-color: #ffd700;
+}
+
+.americanfootball-theme {
+  --text-color: #ffffff;
+  --bg-color: #080a05;
+  --highlight-color: #1e2317;
+  --link-color: #9eba82;
+}
+
+#welcome-message {
+  margin-bottom: 15px;
+}
+
+.hidden {
+  display: none;
+}
+
+#completion-suggestions {
+  background-color: var(--bg-color);
+  border: 1px solid var(--text-color);
+  margin-top: 5px;
+  padding: 5px;
+  max-width: 50%;
+  display: none;
+}
+
+.suggestion {
+  padding: 2px 5px;
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  background-color: var(--highlight-color);
+}
+
+.no-margin {
+  margin: 0;
+  padding: 0;
+}
